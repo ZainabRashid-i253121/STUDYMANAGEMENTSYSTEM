@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Study Management System{% endblock %}
+{% block content %}
+<h1>Your dashboard</h1>
+<p>You are logged in as <strong>{{ user.email }}</strong>.</p>
+<p>Role: {{ user.role }}</p>
+
+<section aria-labelledby="guide-heading">
+  <h2 id="guide-heading">How to use this dashboard</h2>
+  <ul>
+    <li>Your tasks and their deadlines are listed below, earliest deadline first.</li>
+    <li>A task with no deadline stays in the list and is marked <em>Missing deadline information</em>.</li>
+    <li>Use <strong>Mark complete</strong> when a task is done. Its deadline is kept. Use <strong>Mark incomplete</strong> to undo it.</li>
+    <li>Use the <strong>All / Incomplete / Completed</strong> links to filter the list.</li>
+    <li>The progress counts above the list update automatically.</li>
+  </ul>
+</section>
+
+<section aria-labelledby="progress-heading">
+  <h2 id="progress-heading">Task progress</h2>
+  <p>Total: {{ summary.total }} · Incomplete: {{ summary.incomplete }} · Completed: {{ summary.completed }}</p>
+  <p>Completion: {{ summary.completion_percentage }}%</p>
+</section>
+
+{% if manual_entry_enabled %}
+<section aria-labelledby="add-task-heading">
+  <h2 id="add-task-heading">Add a task (development/demo only)</h2>
+  <form method="post" action="{{ url_for('add_task') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="title">Task title</label>
+    <input id="title" name="title" type="text" maxlength="200" required>
+    <label for="course">Course</label>
+    <input id="course" name="course" type="text">
+    <label for="deadline">Deadline (optional)</label>
+    <input id="deadline" name="deadline" type="date">
+    <button type="submit">Add task</button>
+  </form>
+</section>
+{% endif %}
+
+<section aria-labelledby="tasks-heading">
+  <h2 id="tasks-heading">Your tasks</h2>
+  <nav class="filters" aria-label="Filter tasks by completion status">
+    <a href="{{ url_for('dashboard', status='all') }}"{% if status_filter == 'all' %} class="active" aria-current="page"{% endif %}>All</a>
+    <a href="{{ url_for('dashboard', status='incomplete') }}"{% if status_filter == 'incomplete' %} class="active" aria-current="page"{% endif %}>Incomplete</a>
+    <a href="{{ url_for('dashboard', status='completed') }}"{% if status_filter == 'completed' %} class="active" aria-current="page"{% endif %}>Completed</a>
+  </nav>
+  {% if tasks %}
+    <ul>
+    {% for task in tasks %}
+      <li class="task">
+        <h3>{{ task.title }}</h3>
+        <p>Course: {{ task.course or "Not specified" }}</p>
+        {% if task.deadline_at %}
+          <p>Deadline: {{ task.deadline_at }}</p>
+        {% elif task.deadline %}
+          <p>Deadline: {{ task.deadline }}</p>
+        {% else %}
+          <p class="missing-deadline">Missing deadline information</p>
+        {% endif %}
+        {% if task.deadline_conflict %}
+          <p class="deadline-conflict" role="status">Deadline conflict — review required</p>
+        {% endif %}
+        <p>Status: {{ task.status }}</p>
+        {% if task.status == "incomplete" %}
+          <p>Priority: <strong>{{ task.priority }}</strong></p>
+          {% if task.priority_requires_review %}
+            <p role="status">Priority undetermined — review required</p>
+          {% endif %}
+        {% else %}
+          <p>Priority: Not calculated (completed task)</p>
+        {% endif %}
+        <p>Completed at: {{ task.completed_at or "—" }}</p>
+        {% if task.status == "completed" %}
+          <p class="completed-label">Completed</p>
+          <form method="post" action="{{ url_for('incomplete_task', task_id=task.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Mark incomplete</button>
+          </form>
+        {% else %}
+          <form method="post" action="{{ url_for('complete_task', task_id=task.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Mark complete</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+    </ul>
+  {% elif summary.total %}
+    <p>No {{ status_filter }} tasks to show. Choose another filter.</p>
+  {% else %}
+    <p>No tasks yet.
+    {% if manual_entry_enabled %}Add your first task above.{% else %}Tasks appear here once they are imported and accepted.{% endif %}</p>
+  {% endif %}
+</section>
+
+
+<section aria-labelledby="reminder-preferences-heading" id="reminder-helper"
+         data-poll-url="{{ url_for('poll_reminders') }}"
+         data-poll-interval="{{ poll_interval * 1000 }}">
+  <h2 id="reminder-preferences-heading">Reminder preferences</h2>
+  <form method="post" action="{{ url_for('save_reminder_preferences') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label><input type="checkbox" name="enabled" {% if preferences.enabled %}checked{% endif %}> Enable reminders</label><br>
+    <label><input type="checkbox" name="deadline_enabled" {% if preferences.deadline_enabled %}checked{% endif %}> Deadline reminders</label><br>
+    <label><input type="checkbox" name="session_enabled" {% if preferences.session_enabled %}checked{% endif %}> Scheduled-session reminders</label><br>
+    <button type="submit">Save reminder preferences</button>
+  </form>
+  <p><button type="button" id="enable-browser-notifications">Enable browser notifications</button>
+     <span id="browser-notification-status" role="status" aria-live="polite"></span></p>
+  <div id="reminder-fallback" role="status" aria-live="polite" aria-atomic="false"></div>
+</section>
+
+<section aria-labelledby="deadline-reminders-heading">
+  <h2 id="deadline-reminders-heading">Configure deadline reminders</h2>
+  {% for task in reminder_tasks if task.status == 'incomplete' and task.deadline_at %}
+    <form method="post" action="{{ url_for('add_reminder') }}" class="reminder-form"
+          data-event-type="deadline" data-event-utc="{{ task.deadline_at }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="target_type" value="deadline">
+      <input type="hidden" name="task_id" value="{{ task.id }}">
+      <input type="hidden" name="remind_at">
+      <input type="hidden" name="event_at">
+      <label>Reminder for {{ task.title }}
+        <select name="preset_offset_seconds" class="reminder-preset">
+          <option value="">Custom date and time</option>
+          {% for offset in deadline_presets %}
+            <option value="{{ offset }}">Saved preset: {{ offset }} seconds before</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Custom reminder time <input type="datetime-local" class="custom-reminder-time"></label>
+      <label>Message <input type="text" name="message" maxlength="250"></label>
+      <button type="submit">Add deadline reminder</button>
+    </form>
+  {% else %}
+    <p>Deadline reminders require a task with a timestamp deadline. Date-only deadlines have no approved time of day.</p>
+  {% endfor %}
+</section>
+
+<section aria-labelledby="session-reminders-heading">
+  <h2 id="session-reminders-heading">Configure Scheduled Study Session reminders</h2>
+  {% for study_session in sessions if study_session.status == 'scheduled' %}
+    <form method="post" action="{{ url_for('add_reminder') }}" class="reminder-form"
+          data-event-type="session" data-event-local="{{ study_session.session_date }}T{{ study_session.start_time }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="target_type" value="session">
+      <input type="hidden" name="session_id" value="{{ study_session.id }}">
+      <input type="hidden" name="remind_at">
+      <input type="hidden" name="event_at">
+      <label>Reminder for session {{ study_session.session_date }} {{ study_session.start_time }}
+        <select name="preset_offset_seconds" class="reminder-preset">
+          <option value="">Custom date and time</option>
+          {% for offset in session_presets %}
+            <option value="{{ offset }}">Saved preset: {{ offset }} seconds before</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Custom reminder time <input type="datetime-local" class="custom-reminder-time"></label>
+      <label>Message <input type="text" name="message" maxlength="250"></label>
+      <button type="submit">Add session reminder</button>
+    </form>
+  {% else %}
+    <p>No Scheduled Study Sessions are available for reminders.</p>
+  {% endfor %}
+</section>
+
+<section aria-labelledby="reminders-list-heading">
+  <h2 id="reminders-list-heading">Your reminders</h2>
+  {% if reminders %}
+    <ul>
+      {% for reminder in reminders %}
+        <li>
+          {{ reminder.message or ('Reminder #' ~ reminder.id) }} — {{ reminder.remind_at }}
+          ({{ reminder.event_type }}, {{ reminder.status }})
+          {% if reminder.last_error %}<span role="status">Last delivery error: {{ reminder.last_error }}</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No reminders configured.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="reminder-notices-heading">
+  <h2 id="reminder-notices-heading">Reminder notices</h2>
+  <ul id="reminder-notices">
+    {% for notice in notices %}
+      <li data-notice-id="{{ notice.id }}">
+        <span>{{ notice.message }}</span>
+        <button type="button" data-dismiss-notice="{{ notice.id }}">Dismiss</button>
+      </li>
+    {% else %}
+      <li class="no-reminder-notices">No reminder notices.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<form method="post" action="{{ url_for('logout') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit">Log out</button>
+</form>
+{% endblock %}

@@ -1,0 +1,1 @@
+"""Centralized persistence boundary."""
