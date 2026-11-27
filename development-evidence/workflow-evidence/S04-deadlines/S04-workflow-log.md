@@ -7,6 +7,7 @@
 - **Human action:** Requested verification against ADRs before approving any changes.
 - **Decision:** Pending confirmation.
 - **Evidence:** Saved AI conversation discussing the issue.
+- **Requirement Reference:** PRD §4, §9 and Flow 3; FR-03 / AC-FR-03.2 (deadline changes creating conflict flags for affected tasks); FR-04 / AC-FR-04.1 (flag identified deadline conflicts for review); EC-04 (conflict conditions unresolved). Architecture §10 and ADR-006 §3 (Domain Rules ownership of conflict identification).
 
 ## Final Review and Acceptance
 
