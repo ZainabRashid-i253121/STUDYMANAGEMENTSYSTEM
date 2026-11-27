@@ -1,0 +1,20 @@
+-**1. Final numbered acceptance criteria**
+ID	Requirement reference	Expected behaviour and test	Status
+S09-01	FR-14; ADR-006 §5	Enable/disable user-specific reminder preferences; test persistence and isolation	In Scope
+S09-02	AC-14.1; FR-14	Configure deadline reminders using presets and custom times; test both	In Scope
+S09-03	AC-14.2; FR-14	Configure Scheduled Study Session reminders; test both time options	In Scope
+S09-04	AC-14.6; FR-14	Multiple reminders per event; test independent reminders	In Scope
+S09-05	AC-14.3; AGENTS.md §5; ADR-006	Native browser notifications, permission handling and accessible in-app fallback; test granted, denied and unavailable permission	In Scope
+S09-06	ADR-006 §5; approved polling design	Immediate page-load check and 30-second polling; test due and future reminders	In Scope
+S09-07	AC-14.4; BR-08; ADR-005	Update deadline reminders after task.deadline_changed; test changed deadlines	In Scope
+S09-08	AC-14.4; BR-08; ADR-006	Update session reminders after the established S08 rescheduling event	Deferred: event contract absent
+S09-09	AC-14.5; AC-FR-13.7; ADR-006	Cancel pending deadline reminders when a task becomes Completed; test cancellation	In Scope
+S09-10	AC-14.7; OQ-40	Record passed reminders as skipped and display dismissible in-app notices	In Scope
+S09-11	AC-14.8; ADR-005	Record delivery failures and retry; test failure recording and subsequent attempts	In Scope
+S09-12	AGENTS.md §5; approved notification design	Prevent duplicate notifications across tabs; test concurrent polling	In Scope
+S09-13	AGENTS.md §5; NFR-03; ADR-003	Protect authentication, ownership and user-specific reminder data	In Scope
+S09-14	ADR-006; approved notification design	Ignore acknowledgments for reminders already cancelled; test cancellation/acknowledgment race	In Scope
+S09-15	OQ-38; architecture §7	Browser-closed delivery beyond available browser capabilities	Deferred
+S09-16	OQ-41; AC-14.5	Reminders for sessions associated with completed tasks	Deferred
+S09-17	AGENTS.md §5; OQ-43	Task deletion and task-deletion cancellation	Excluded
+S09-18	AGENTS.md §5; OQ-43	Scheduled-session deletion and deletion-triggered cancellation	Excluded
