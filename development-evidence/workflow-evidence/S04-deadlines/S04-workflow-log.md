@@ -1,5 +1,6 @@
 ## Workflow Entry 1 – Architectural Conflict
 
+-**Responsible Member:** 25i-3121 Zainab Rashid
 - **Slice:** S04 – Deadline Management and Conflict Identification
 - **Stage:** Pre-implementation
 - **Issue:** AGENTS.md and architecture.md disagree about ownership of conflict identification.
