@@ -3,9 +3,10 @@
 
 ### Entry 1: Requirements and Implementation
 
-**Responsible member:** Person 2  
+**Responsible member:** 25i-3121 Zainab Rashid
 **Slice:** S05 – Task Priority Calculation and Display  
 **Implementation mode:** AFK (AI implementation with human review)
+**Requirement References:** G-05 (priority requirements and rules); S05 acceptance criteria AC-01 to AC-12, refined and approved by the responsible member. Includes priority levels, deadline-based thresholds, missing deadlines, completed tasks, conflict handling and scheduling-review considerations.
 
 The S05 requirements and acceptance criteria were reviewed before implementation. The following priority rules were agreed upon:
 
