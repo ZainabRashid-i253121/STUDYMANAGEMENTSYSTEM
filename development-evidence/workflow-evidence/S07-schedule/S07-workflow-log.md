@@ -39,3 +39,32 @@ Availability entry, update, and viewing; task estimate entry; schedule generatio
 ## Validation status
 
 Tests have not been run for this S07 work. No test results are claimed.
+
+## Stage 4 testing and verification attempt — 2026-11-28
+
+The S07 verification step was attempted on the committed S07 implementation (`f462f72`). The following commands were issued from `study_management_scaffold/`:
+
+| Command | Actual result |
+|---|---|
+| `pytest -q tests/test_s07_schedule.py` | Did not start: PowerShell reported `pytest` was not recognized. No tests were collected or run. |
+| `pytest -q tests/test_database.py tests/test_module_interfaces.py` | Did not start for the same missing `pytest` executable. No tests were collected or run. |
+| `pytest -q tests/test_s05_priority.py tests/test_s03_dashboard.py` | Did not start for the same missing `pytest` executable. No tests were collected or run. |
+| `git show --check --oneline HEAD` | Passed for commit `f462f72`; no whitespace errors were reported. |
+| `git diff --check` | Passed; no whitespace errors were reported. |
+
+`python`, `python3`, `py`, and `pytest` were not available in the shell or the checked project virtual-environment path. There were no code corrections or test retests because the test runner did not start. These results indicate an environment blocker, not a passing or failing S07 test suite. S07 is **not marked accepted**. Verification notes were recorded on the separate `person3-s07-verify` branch; `main` was not modified.
+
+## Python environment setup and successful retest — 2026-11-28
+
+- Repository inspection found no Python version pin, `pyproject.toml`, or existing virtual environment. `study_management_scaffold/requirements.txt` is the dependency source and lists only Flask and pytest.
+- Installed the signed Python 3.14.10 64-bit Windows runtime per-user from the official Python Software Foundation installer. Its Authenticode signature validated successfully.
+- Created `study_management_scaffold/.venv` with Python 3.14.10 and installed only `requirements.txt` dependencies. Installed top-level versions: Flask 3.1.3 and pytest 9.2.0, with their required transitive packages.
+- Initial test attempts failed before collection because Python/pytest were absent. Environment setup resolved that blocker; no S07 code changes or corrections were needed.
+
+Successful test command, run from `study_management_scaffold/`:
+
+```powershell
+\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider tests/test_s07_schedule.py tests/test_database.py tests/test_module_interfaces.py tests/test_s05_priority.py tests/test_s03_dashboard.py
+```
+
+Actual result: **64 passed in 17.72 seconds**. This covers S07 duration persistence/validation and ownership, availability create/update, schedule viewing, priority/deadline order, slot allocation and splitting, insufficient-time handling, missing estimate/deadline behavior, completed-task exclusion, database migration, module interfaces, and the related Priority/dashboard regressions. No test failures occurred, so no code correction or subsequent retest was required. S07 remains pending human review and is **not marked accepted**. Setup and test-log changes are on `person3-s07-verify`; `main` was not modified, committed, or pushed.
