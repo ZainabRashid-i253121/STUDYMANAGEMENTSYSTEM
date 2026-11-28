@@ -45,6 +45,15 @@ def test_task_duration_estimate_is_saved_and_user_scoped(test_db, user_id):
     assert get_task(user_id, task_id)["study_duration_minutes"] == 45
 
 
+def test_one_minute_is_the_minimum_valid_task_duration(test_db, user_id):
+    task_id = create_task(user_id, "One-minute estimate")
+
+    updated = update_study_duration(user_id, task_id, 1)
+
+    assert updated["study_duration_minutes"] == 1
+    assert get_task(user_id, task_id)["study_duration_minutes"] == 1
+
+
 @pytest.mark.parametrize("duration", [0, -1, 1.5, True, None])
 def test_task_duration_estimate_must_be_positive_whole_minutes(test_db, user_id, duration):
     task_id = create_task(user_id, "Invalid estimate")
@@ -116,6 +125,36 @@ def test_schedule_generation_uses_nearest_deadline_for_equal_priorities(test_db,
     assert sessions[0]["session_date"] == "2026-11-30"
     assert sessions[1]["task_id"] == later_id
     assert sessions[1]["session_date"] == "2026-12-01"
+
+
+@pytest.mark.parametrize(
+    ("duration", "expected_sessions"),
+    [
+        (60, [("2026-11-30", "09:00", "10:00")]),
+        (61, []),
+    ],
+)
+def test_schedule_generation_respects_deadline_date_cutoff(
+    test_db, user_id, duration, expected_sessions
+):
+    set_availability(user_id, 0, "09:00", "10:00")
+    set_availability(user_id, 1, "09:00", "10:00")
+    task_id = create_task(user_id, "Task due at cutoff", "2026-11-30")
+    update_study_duration(user_id, task_id, duration)
+
+    result = generate_study_schedule(user_id, as_of="2026-11-30")
+    sessions = [row for row in list_study_sessions(user_id) if row["task_id"] == task_id]
+
+    assert [
+        (row["session_date"], row["start_time"], row["end_time"])
+        for row in sessions
+    ] == expected_sessions
+    if expected_sessions:
+        assert result["scheduled_task_ids"] == [task_id]
+        assert result["unscheduled_task_ids"] == []
+    else:
+        assert result["scheduled_task_ids"] == []
+        assert result["unscheduled_task_ids"] == [task_id]
 
 
 def test_insufficient_availability_leaves_task_unscheduled_without_blocking_next_task(test_db, user_id):

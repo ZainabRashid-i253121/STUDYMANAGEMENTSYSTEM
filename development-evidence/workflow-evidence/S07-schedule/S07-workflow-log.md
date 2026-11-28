@@ -7,7 +7,7 @@
 - **Implementation mode:** AFK (Away-from-Keyboard)
 - **Reason:** This project uses AFK implementation for the assigned slice.
 - **Requirement references:** PRD FR-06 / AC-FR-06.1–06.2; FR-16 / AC-FR-16.1–16.3; plan-v03 S07; architecture §§5–8; ADR-005 and ADR-006.
-- **Working branch:** `person3-s07`; `main` is unchanged.
+- **Initial implementation branch:** `person3-s07`. Subsequent S07 implementation, verification, and human-review commits are present on `main` (`f462f72`, `ad3e97a`, `3fafdee`). The current REVISE follow-up is uncommitted on `main`.
 
 ## Context reviewed
 
@@ -79,3 +79,24 @@ Actual result: **64 passed in 17.72 seconds**. This covers S07 duration persiste
 - **Focused test and retest:** Ran from `study_management_scaffold/`: `\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider tests/test_s07_schedule.py tests/test_database.py tests/test_module_interfaces.py tests/test_s05_priority.py tests/test_s03_dashboard.py`. Actual result after adding the Undetermined-priority test: **65 passed in 11.45s**. The new focused case monkeypatches the Priority interface to return `Undetermined` and asserts the task is returned unscheduled with no persisted session. No test failures or implementation corrections were required.
 - **Branch/history:** Work is being performed on the already checked-out branch `main` because the reviewer instructed not to switch branches. No branch switch, commit, or push is being made.
 - **S07 status:** REVISE remains the human decision. S07 is not accepted.
+
+## Human REVISE follow-up — Data Access and boundary verification — 2026-11-28
+
+- **Decision remains:** REVISE. No Accept/Reject decision was made in this follow-up.
+- **Architecture correction:** Following the team's direction to follow architecture §6, all Schedule-owned persistence operations now go through Schedule-specific functions in `Data_Access.database`: availability insert/select/update, study-session insert/select, and atomic insertion of generated session batches. Schedule retains validation, task/priority calls, slot expansion, ordering, deadline checks, splitting, and unscheduled-task decisions. A source check for raw connections, SQL execution, or SQLite use in `Schedule` returned only the import from `Data_Access.database`; no direct SQL remains in Schedule.
+- **Boundary tests added:** `test_one_minute_is_the_minimum_valid_task_duration` verifies that an estimate of 1 minute is accepted and persisted. `test_schedule_generation_respects_deadline_date_cutoff` covers a 60-minute session that ends on the deadline date and a 61-minute estimate that would require availability on the following date; the former is scheduled on the deadline date and the latter remains unscheduled with no session persisted.
+- **Testing selection basis:** The previously recorded 65-test run covered the remaining S07 functional/negative cases, priority boundaries, and related S03/S05 regressions. This correction touches Schedule persistence and Data Access, so the focused verification reran S07 scheduling, Data Access migration, and module-interface tests only; it did not repeat the separate S03 dashboard or S05 priority suite. The tests were selected against the D4 Testing Instructions: basic behavior, relevant negatives, meaningful BVA, and regression at the changed module boundaries.
+- **Command:** From `study_management_scaffold/`, `\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider tests/test_s07_schedule.py tests/test_database.py tests/test_module_interfaces.py`.
+- **Actual result:** **38 passed in 10.88 seconds.** This run includes the new 1-minute and deadline-cutoff tests, Schedule availability/session operations through Data Access, existing schedule generation/viewing and access-control cases, database migration checks, and cross-module interface checks. No test failures or corrective retests occurred.
+- **Concise test evidence:**
+
+  | Slice / requirement | Test type | Input / condition | Expected result | Actual result | Result |
+  |---|---|---|---|---|---|
+  | S07 task duration estimate | BVA / functional | Save 1 minute | Accepted and persisted | Accepted and persisted | Pass |
+  | S07 deadline cutoff | BVA | 60 minutes available on deadline date | Session finishes on deadline date | Session 09:00–10:00 on 2026-11-30 | Pass |
+  | S07 deadline cutoff | BVA / negative | 61 minutes with 60 minutes available on deadline date and another slot next day | No session persisted; task unscheduled | No session persisted; task unscheduled | Pass |
+  | S07 / Data Access boundary | Regression / interface | Availability/session operations and generated schedule via Schedule services | Existing behaviors and interfaces remain functional | Covered by the targeted run | Pass |
+  | S07 requirement flow | Application walkthrough | Authenticated availability create/update, generation, and schedule view | Updated saved slot is used and sessions render within it | Verified via local HTTP route responses; visual browser bridge unavailable | Partial (visual demo not verified) |
+- **Architecture/source check:** `rg -n 'connection_scope|\.execute\(|sqlite3|Data_Access\.database' study_management_scaffold\Schedule` returned only the `Data_Access.database` service import. `git diff --check` passed; PowerShell displayed only the repository's LF-to-CRLF working-copy warnings.
+- **Application walkthrough:** A visible browser walkthrough was attempted but not available: `cua.getState()` reported `Browsers: Error: The browser access host is unavailable`; selecting the existing Chrome window returned `Accessibility state unavailable`; creating an in-app browser tab returned `The browser access host is unavailable`. Separately, a local Flask instance using a disposable temp SQLite database completed authenticated HTTP requests for login/dashboard, availability creation (Saturday 09:00–11:00), availability update (09:00–12:00), schedule generation, and rendered schedule viewing. The returned schedule content showed High Priority 09:00–10:30 followed by Medium Priority 10:30–11:30, both inside the updated saved slot. This is an application-route walkthrough, not a successful visual browser demonstration.
+- **Repository handling:** No commit, push, branch switch, or changes to unrelated untracked items were made. S07 remains at REVISE pending the user's final human-review decision.

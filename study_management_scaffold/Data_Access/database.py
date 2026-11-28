@@ -27,6 +27,78 @@ def connection_scope():
     finally:
         connection.close()
 
+
+def insert_availability(user_id, day_of_week, start_time, end_time):
+    """Persist one Schedule-owned availability period."""
+    with connection_scope() as connection:
+        cursor = connection.execute(
+            "INSERT INTO availability (user_id, day_of_week, start_time, end_time) "
+            "VALUES (?, ?, ?, ?)",
+            (user_id, day_of_week, start_time, end_time),
+        )
+        return cursor.lastrowid
+
+
+def select_availability(user_id):
+    """Return a user's saved availability periods."""
+    with connection_scope() as connection:
+        rows = connection.execute(
+            "SELECT id, user_id, day_of_week, start_time, end_time, created_at "
+            "FROM availability WHERE user_id = ? ORDER BY day_of_week, start_time",
+            (user_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def update_availability(user_id, availability_id, day_of_week, start_time, end_time):
+    """Update an availability period only when it belongs to the supplied user."""
+    with connection_scope() as connection:
+        cursor = connection.execute(
+            "UPDATE availability SET day_of_week = ?, start_time = ?, end_time = ? "
+            "WHERE id = ? AND user_id = ?",
+            (day_of_week, start_time, end_time, availability_id, user_id),
+        )
+        return availability_id if cursor.rowcount else None
+
+
+def insert_study_session(user_id, session_date, start_time, end_time, task_id=None, notes=None):
+    """Persist one Schedule-owned study session."""
+    with connection_scope() as connection:
+        cursor = connection.execute(
+            "INSERT INTO study_sessions "
+            "(user_id, task_id, session_date, start_time, end_time, notes) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, task_id, session_date, start_time, end_time, notes),
+        )
+        return cursor.lastrowid
+
+
+def select_study_sessions(user_id):
+    """Return a user's scheduled-study-session records in chronological order."""
+    with connection_scope() as connection:
+        rows = connection.execute(
+            "SELECT id, user_id, task_id, session_date, start_time, end_time, status, notes, created_at "
+            "FROM study_sessions WHERE user_id = ? ORDER BY session_date, start_time",
+            (user_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def insert_study_sessions(user_id, sessions):
+    """Persist a generated batch atomically and return its session IDs."""
+    session_ids = []
+    with connection_scope() as connection:
+        for session in sessions:
+            cursor = connection.execute(
+                "INSERT INTO study_sessions "
+                "(user_id, task_id, session_date, start_time, end_time) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (user_id, session["task_id"], session["session_date"],
+                 session["start_time"], session["end_time"]),
+            )
+            session_ids.append(cursor.lastrowid)
+    return session_ids
+
 def init_db():
     """Create all application tables; safe to call repeatedly."""
     schema = """
