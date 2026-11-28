@@ -13,13 +13,17 @@ from Reminder import (
     list_reminder_presets, register_event_handlers, claim_due_reminders,
     complete_delivery, list_notices, dismiss_notice, POLL_INTERVAL_SECONDS,
 )
-from Schedule import list_study_sessions
+from Schedule import (
+    generate_study_schedule, list_availability, list_study_sessions,
+    set_availability, update_availability,
+)
 from Task_Management import (
     create_task,
     get_task,
     get_completion_summary,
     list_tasks,
     transition_task_status,
+    update_study_duration,
 )
 
 from Authentication import (
@@ -140,6 +144,87 @@ def create_app(test_config=None):
             manual_entry_enabled=app.config["ALLOW_MANUAL_TASK_ENTRY"],
         )
 
+    @app.get("/schedule")
+    @login_required
+    def schedule_page():
+        user_id = session["user_id"]
+        availability = list_availability(user_id)
+        sessions = list_study_sessions(user_id)
+        for study_session in sessions:
+            task_id = study_session.get("task_id")
+            task = get_task(user_id, task_id) if task_id is not None else None
+            study_session["task_title"] = task["title"] if task else None
+        return render_template(
+            "schedule.html",
+            user=current_user(),
+            availability=availability,
+            sessions=sessions,
+            weekdays=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        )
+
+    @app.post("/schedule/generate")
+    @login_required
+    def create_study_schedule():
+        if not validate_csrf_token(request.form.get("csrf_token")):
+            abort(400)
+        try:
+            result = generate_study_schedule(session["user_id"])
+        except DomainRuleError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("schedule_page"))
+        if result["session_ids"]:
+            flash(
+                f"Schedule created with {len(result['session_ids'])} study session(s). "
+                f"{len(result['unscheduled_task_ids'])} task(s) remain unscheduled.",
+                "success",
+            )
+        elif result["unscheduled_task_ids"]:
+            flash(
+                f"No new sessions were created. {len(result['unscheduled_task_ids'])} task(s) "
+                "remain unscheduled; check their estimates, priorities, deadlines, and availability.",
+                "error",
+            )
+        else:
+            flash("No new sessions were needed; existing sessions were preserved.", "success")
+        return redirect(url_for("schedule_page"))
+
+    @app.post("/availability")
+    @login_required
+    def add_availability():
+        if not validate_csrf_token(request.form.get("csrf_token")):
+            abort(400)
+        try:
+            set_availability(
+                session["user_id"],
+                request.form.get("day_of_week", type=int),
+                request.form.get("start_time", ""),
+                request.form.get("end_time", ""),
+            )
+            flash("Availability saved.", "success")
+        except DomainRuleError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("schedule_page"))
+
+    @app.post("/availability/<int:availability_id>")
+    @login_required
+    def edit_availability(availability_id):
+        if not validate_csrf_token(request.form.get("csrf_token")):
+            abort(400)
+        try:
+            updated_id = update_availability(
+                session["user_id"], availability_id,
+                request.form.get("day_of_week", type=int),
+                request.form.get("start_time", ""),
+                request.form.get("end_time", ""),
+            )
+        except DomainRuleError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("schedule_page"))
+        if updated_id is None:
+            abort(404)
+        flash("Availability updated.", "success")
+        return redirect(url_for("schedule_page"))
+
     @app.post("/tasks")
     @login_required
     def add_task():
@@ -190,6 +275,24 @@ def create_app(test_config=None):
             # The service scopes the lookup/update by user_id; foreign tasks are indistinguishable.
             abort(404)
         flash("Task marked as completed.", "success")
+        return redirect(url_for("dashboard"))
+
+    @app.post("/tasks/<int:task_id>/study-duration")
+    @login_required
+    def save_study_duration(task_id):
+        if not validate_csrf_token(request.form.get("csrf_token")):
+            abort(400)
+        try:
+            task = update_study_duration(
+                session["user_id"], task_id,
+                request.form.get("study_duration_minutes", type=int),
+            )
+        except DomainRuleError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("dashboard"))
+        if task is None:
+            abort(404)
+        flash("Study-duration estimate saved.", "success")
         return redirect(url_for("dashboard"))
 
 

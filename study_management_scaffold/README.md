@@ -56,10 +56,10 @@ External_Integration ──> Domain_Rules (validate staged data)
 ```
 
 ### Service APIs
-- `Task_Management`: `create_task` (date-only or optional timezone-aware `deadline_at`), `get_task`, `list_tasks(user_id, status=None)`, `update_task_deadline(user_id, task_id, deadline_at)`, `transition_task_status` (`completed` / `incomplete`), `get_completion_summary`.
+- `Task_Management`: `create_task` (date-only or optional timezone-aware `deadline_at`), `get_task`, `list_tasks(user_id, status=None)`, `update_task_deadline(user_id, task_id, deadline_at)`, `update_study_duration(user_id, task_id, study_duration_minutes)`, `transition_task_status` (`completed` / `incomplete`), `get_completion_summary`.
 - `Events` (S01 foundation infrastructure, not a business module): `publish_event`, `register_handler`, `process_pending_events` (optionally scoped by `user_id`), `list_events`, `get_event`.
 - `Priority`: `deadline_distance` and `deadline_distances` (return factual days-until-deadline; tasks without a deadline are skipped; priority bands/weights are not assumed without an approved rule).
-- `Schedule`: `set_availability`, `list_availability`, `schedule_study_session`, `list_study_sessions`.
+- `Schedule`: `set_availability`, `update_availability`, `list_availability`, `generate_study_schedule`, `schedule_study_session`, `list_study_sessions`.
 - `Reminder`: `create_reminder`, `list_reminders`, `update_reminder_status`, `get_preferences`, `update_preferences`, `claim_due_reminders`, `complete_delivery`, `list_notices`, and `dismiss_notice`. Reminder presets are user-specific offsets reused from previously configured reminders; no fixed preset durations are specified by the project documents.
 - `External_Integration`: `stage_import` (date-only or timezone-aware timestamp), `list_staged_imports`, `accept_staged_import`, `update_imported_task_deadline` (S06 integration hook), `record_sync_result`.
 
@@ -88,6 +88,12 @@ The login-protected `/dashboard` shows only the signed-in user's tasks (title, c
 - **Progress:** `Task_Management.get_completion_summary(user_id)` returns total, incomplete, completed and completion percentage (no calculation in the template).
 - **Manual task entry is NOT an approved requirement** (plan OI-01 / G-14; `AGENTS.md`). The dashboard "Add task" form and `POST /tasks` are behind `ALLOW_MANUAL_TASK_ENTRY` (default **off**; `POST /tasks` then returns 404). For local development/demo set `STUDY_MANAGEMENT_ALLOW_MANUAL_TASK_ENTRY=1`. `Task_Management.create_task` remains available as a service function (used by imports).
 - No overdue marking and no priority levels on the dashboard (Priority belongs to slice S05).
+
+## S07 — User availability and Study Schedule
+
+The authenticated `/schedule` page lets a user save and update weekly availability and view their saved Scheduled Study Sessions. Availability periods and sessions are always scoped to the signed-in user. The task dashboard accepts a positive whole-minute study-duration estimate for each task; estimates are stored as `tasks.study_duration_minutes`, owned and updated through Task Management. Existing databases gain the nullable column through the `init_db()` migration, so imported or older tasks remain available until the user supplies an estimate.
+
+Schedule generation uses the user's estimates, existing Task Management and Priority interfaces, and saved availability. It processes higher-priority tasks first and uses the nearer deadline to break equal-priority ties. It places sessions chronologically within availability periods, splitting estimates across periods when needed. Tasks without an estimate, deadline, or determinable priority, and tasks whose full estimate cannot fit by the deadline, remain unscheduled. Existing sessions are preserved and treated as occupied time; schedule adjustment remains S08 scope. See `docs/slices/S07.md` for details.
 
 ### S03 routes and module communication
 ```text

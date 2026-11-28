@@ -44,6 +44,7 @@ def init_db():
         course TEXT,
         deadline TEXT,
         deadline_at TEXT,
+        study_duration_minutes INTEGER CHECK (study_duration_minutes IS NULL OR study_duration_minutes > 0),
         status TEXT NOT NULL DEFAULT 'incomplete'
             CHECK (status IN ('incomplete', 'completed')),
         completed_at TEXT,
@@ -200,6 +201,11 @@ def init_db():
             connection.execute("ALTER TABLE tasks ADD COLUMN source_import_id INTEGER")
         if "deadline_at" not in task_columns:
             connection.execute("ALTER TABLE tasks ADD COLUMN deadline_at TEXT")
+        if "study_duration_minutes" not in task_columns:
+            connection.execute(
+                "ALTER TABLE tasks ADD COLUMN study_duration_minutes INTEGER "
+                "CHECK (study_duration_minutes IS NULL OR study_duration_minutes > 0)"
+            )
         staged_columns = {row[1] for row in connection.execute("PRAGMA table_info(staged_imports)")}
         if "deadline_at" not in staged_columns:
             connection.execute("ALTER TABLE staged_imports ADD COLUMN deadline_at TEXT")
@@ -220,6 +226,7 @@ _TASKS_TABLE_SQL = """
         course TEXT,
         deadline TEXT,
         deadline_at TEXT,
+        study_duration_minutes INTEGER CHECK (study_duration_minutes IS NULL OR study_duration_minutes > 0),
         status TEXT NOT NULL DEFAULT 'incomplete'
             CHECK (status IN ('incomplete', 'completed')),
         completed_at TEXT,
@@ -260,12 +267,13 @@ def _migrate_tasks_table_if_legacy():
         try:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(tasks)")}
             import_col = "source_import_id" if "source_import_id" in columns else "NULL"
+            duration_col = "study_duration_minutes" if "study_duration_minutes" in columns else "NULL"
             connection.execute(_TASKS_TABLE_SQL)
             connection.execute(
-                "INSERT INTO tasks_new (id, user_id, title, course, deadline, deadline_at, status, "
-                "completed_at, created_at, source_import_id) "
+                "INSERT INTO tasks_new (id, user_id, title, course, deadline, deadline_at, "
+                "study_duration_minutes, status, completed_at, created_at, source_import_id) "
                 "SELECT id, user_id, title, course, deadline, "
-                "NULL, "
+                f"NULL, {duration_col}, "
                 "CASE WHEN status = 'completed' THEN 'completed' ELSE 'incomplete' END, "
                 f"completed_at, created_at, {import_col} FROM tasks"
             )

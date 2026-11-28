@@ -26,6 +26,13 @@ def validate_task_title(title):
     return title.strip()
 
 
+def validate_study_duration_minutes(value):
+    """Validate a user-entered whole-minute estimate for a task."""
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise DomainRuleError("Study duration must be a positive whole number of minutes.")
+    return value
+
+
 def validate_deadline(deadline):
     if isinstance(deadline, date):
         return deadline.isoformat()

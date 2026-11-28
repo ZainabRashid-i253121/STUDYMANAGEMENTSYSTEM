@@ -1,12 +1,16 @@
 def test_public_service_interfaces_exist():
-    from Task_Management import create_task, get_task, list_tasks, transition_task_status
+    from Task_Management import create_task, get_task, list_tasks, transition_task_status, update_study_duration
     from Priority import deadline_distance
-    from Schedule import set_availability, list_availability, schedule_study_session, list_study_sessions
+    from Schedule import (
+        set_availability, update_availability, list_availability,
+        generate_study_schedule, schedule_study_session, list_study_sessions,
+    )
     from Reminder import create_reminder, list_reminders, update_reminder_status
     from External_Integration import stage_import, list_staged_imports, accept_staged_import
     assert all(callable(x) for x in [create_task, get_task, list_tasks, transition_task_status,
-        deadline_distance, set_availability, list_availability, schedule_study_session,
-        list_study_sessions, create_reminder, list_reminders, update_reminder_status,
+        deadline_distance, set_availability, update_availability, list_availability,
+        generate_study_schedule, schedule_study_session, list_study_sessions,
+        update_study_duration, create_reminder, list_reminders, update_reminder_status,
         stage_import, list_staged_imports, accept_staged_import])
 
 def test_task_crud_and_user_scoping(test_db, user_id):

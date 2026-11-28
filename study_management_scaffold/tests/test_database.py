@@ -58,6 +58,7 @@ def test_init_db_migrates_existing_tasks_table(tmp_path, monkeypatch):
         columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
         indexes = {row[1] for row in db.execute("PRAGMA index_list(tasks)")}
     assert "source_import_id" in columns
+    assert "study_duration_minutes" in columns
     assert "idx_tasks_import_once" in indexes
 
 
@@ -105,6 +106,7 @@ def test_init_db_rebuilds_legacy_tasks_table_and_keeps_data(tmp_path, monkeypatc
     with database.connection_scope() as db:
         rows = db.execute("SELECT id, title, deadline, status, completed_at FROM tasks ORDER BY id").fetchall()
         deadline_info = [r for r in db.execute("PRAGMA table_info(tasks)") if r[1] == "deadline"][0]
+        task_columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
         reminder = db.execute("SELECT task_id FROM reminders").fetchone()
         fk_problems = db.execute("PRAGMA foreign_key_check").fetchall()
         indexes = {row[1] for row in db.execute("PRAGMA index_list(tasks)")}
@@ -116,6 +118,7 @@ def test_init_db_rebuilds_legacy_tasks_table_and_keeps_data(tmp_path, monkeypatc
     assert rows[2]["completed_at"] == "2026-11-20T10:00:00+00:00"
     assert [r["deadline"] for r in rows] == ["2026-12-01", "2026-12-02", "2026-12-03"]
     assert deadline_info[3] == 0          # deadline is now nullable
+    assert "study_duration_minutes" in task_columns
     assert reminder["task_id"] == 2       # dependent reminder still points at its task
     assert fk_problems == []
     assert "idx_tasks_import_once" in indexes

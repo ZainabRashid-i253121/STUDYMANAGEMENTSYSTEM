@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Study Schedule · Study Management System{% endblock %}
+{% block content %}
+<h1>Your Study Schedule</h1>
+<p><a href="{{ url_for('dashboard') }}">Back to dashboard</a></p>
+
+<section aria-labelledby="availability-heading">
+  <h2 id="availability-heading">Your availability</h2>
+  <p>Enter the days and times when you are available to study.</p>
+  <form method="post" action="{{ url_for('add_availability') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="new-day">Day</label>
+    <select id="new-day" name="day_of_week" required>
+      {% for day in weekdays %}<option value="{{ loop.index0 }}">{{ day }}</option>{% endfor %}
+    </select>
+    <label for="new-start">Available from</label>
+    <input id="new-start" name="start_time" type="time" required>
+    <label for="new-end">Available until</label>
+    <input id="new-end" name="end_time" type="time" required>
+    <button type="submit">Save availability</button>
+  </form>
+
+  {% if availability %}
+    <h3>Saved availability</h3>
+    {% for period in availability %}
+      <form method="post" action="{{ url_for('edit_availability', availability_id=period.id) }}" class="task">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="day-{{ period.id }}">Day</label>
+        <select id="day-{{ period.id }}" name="day_of_week" required>
+          {% for day in weekdays %}
+            <option value="{{ loop.index0 }}" {% if period.day_of_week == loop.index0 %}selected{% endif %}>{{ day }}</option>
+          {% endfor %}
+        </select>
+        <label for="start-{{ period.id }}">Available from</label>
+        <input id="start-{{ period.id }}" name="start_time" type="time" value="{{ period.start_time }}" required>
+        <label for="end-{{ period.id }}">Available until</label>
+        <input id="end-{{ period.id }}" name="end_time" type="time" value="{{ period.end_time }}" required>
+        <button type="submit">Update availability</button>
+      </form>
+    {% endfor %}
+  {% else %}
+    <p>No availability saved yet.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="sessions-heading">
+  <h2 id="sessions-heading">Scheduled Study Sessions</h2>
+  <p>Study-duration estimates can be entered for each task on the <a href="{{ url_for('dashboard') }}">dashboard</a>.</p>
+  <form method="post" action="{{ url_for('create_study_schedule') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Create Study Schedule</button>
+  </form>
+  {% if sessions %}
+    <ul>
+      {% for study_session in sessions %}
+        <li>
+          {{ study_session.session_date }}: {{ study_session.start_time }}–{{ study_session.end_time }}
+          {% if study_session.task_id %}
+            — {{ study_session.task_title or ('Task #' ~ study_session.task_id) }}
+          {% endif %}
+          ({{ study_session.status }})
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No Scheduled Study Sessions to display.</p>
+  {% endif %}
+</section>
+{% endblock %}

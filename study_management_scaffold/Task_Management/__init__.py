@@ -7,10 +7,13 @@ from Data_Access.database import connection_scope
 from Domain_Rules import (
     validate_course, validate_optional_deadline, validate_status_transition,
     validate_task_title, validate_task_status, validate_deadline_datetime,
-    identify_deadline_conflicts,
+    identify_deadline_conflicts, validate_study_duration_minutes,
 )
 
-TASK_COLUMNS = "id, user_id, title, course, deadline, deadline_at, status, completed_at, created_at"
+TASK_COLUMNS = (
+    "id, user_id, title, course, deadline, deadline_at, study_duration_minutes, "
+    "status, completed_at, created_at"
+)
 
 
 def create_task(user_id, title, deadline=None, course=None, *, source_import_id=None, deadline_at=None):
@@ -136,6 +139,21 @@ def update_task_deadline(user_id, task_id, deadline_at):
     return get_task(user_id, task_id)
 
 
+def update_study_duration(user_id, task_id, study_duration_minutes):
+    """Save a user's study-duration estimate on one of their tasks."""
+    if not user_id:
+        raise ValueError("An authenticated user_id is required.")
+    duration = validate_study_duration_minutes(study_duration_minutes)
+    with connection_scope() as db:
+        cursor = db.execute(
+            "UPDATE tasks SET study_duration_minutes = ? WHERE id = ? AND user_id = ?",
+            (duration, task_id, user_id),
+        )
+        if cursor.rowcount == 0:
+            return None
+    return get_task(user_id, task_id)
+
+
 def get_completion_summary(user_id):
     """Return task counts and completion percentage for one user."""
     if not user_id:
@@ -194,4 +212,7 @@ def transition_task_status(user_id, task_id, new_status):
     return get_task(user_id, task_id)
 
 
-__all__ = ["create_task", "get_task", "list_tasks", "update_task_deadline", "transition_task_status", "get_completion_summary"]
+__all__ = [
+    "create_task", "get_task", "list_tasks", "update_task_deadline",
+    "update_study_duration", "transition_task_status", "get_completion_summary",
+]
