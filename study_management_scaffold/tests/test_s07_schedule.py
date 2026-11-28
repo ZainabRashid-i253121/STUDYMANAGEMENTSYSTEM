@@ -1,5 +1,6 @@
 """S07 tests for task study-duration estimates and schedule management."""
 import pytest
+import Schedule
 
 from Domain_Rules import DomainRuleError
 from Schedule import (
@@ -143,6 +144,25 @@ def test_schedule_generation_leaves_tasks_without_estimates_or_deadlines_unsched
     assert result["scheduled_task_ids"] == [estimated_id]
     assert set(result["unscheduled_task_ids"]) == {missing_estimate_id, undated_id}
     assert all(row["task_id"] != undated_id for row in list_study_sessions(user_id))
+
+
+def test_schedule_generation_leaves_undetermined_priority_unscheduled(test_db, user_id, monkeypatch):
+    set_availability(user_id, 0, "09:00", "10:00")
+    task_id = create_task(user_id, "Priority needs review", "2026-12-01")
+    update_study_duration(user_id, task_id, 30)
+
+    def undetermined_priorities(user_id, as_of=None, *, tasks=None):
+        return [
+            {**task, "priority": "Undetermined", "priority_requires_review": True}
+            for task in tasks
+        ]
+
+    monkeypatch.setattr(Schedule, "prioritize_tasks", undetermined_priorities)
+    result = generate_study_schedule(user_id, as_of="2026-11-30")
+
+    assert result["scheduled_task_ids"] == []
+    assert result["unscheduled_task_ids"] == [task_id]
+    assert list_study_sessions(user_id) == []
 
 
 def test_schedule_generation_excludes_completed_tasks(test_db, user_id):
